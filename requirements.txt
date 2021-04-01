@@ -1,0 +1,6 @@
+setuptools>=49.2.1
+python-magic>=0.4.22
+python-dateutil>=2.8.1
+ssl>=1.16
+pathlib>=1.0.1
+argparse>=1.4.0
