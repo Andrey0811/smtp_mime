@@ -1,11 +1,13 @@
+# -*- coding: utf-8 -*-
+
 import sys
 from base64 import b64decode
 from typing import Deque
 from collections import deque
 
-from smtp_client.const import LINE_BREAK, NAME_CLIENT, ENCODING_DEFAULT
-from smtp_client.message import Message
-from smtp_client.transport import Transport
+from smtp_client.const import *
+import smtp_client.message
+import smtp_client.transport
 
 
 class Client:
@@ -13,7 +15,7 @@ class Client:
                  to_email: str, from_email: str,
                  verbose: bool,
                  login: bytes, password: bytes):
-        self._transport = Transport(is_ssl, server)
+        self._transport = smtp_client.transport.Transport(is_ssl, server)
         self._pipeline = False
         self._login = login
         self._password = password
@@ -44,29 +46,31 @@ class Client:
         temp = ''
         for com in commands:
             temp += f'{com}{LINE_BREAK}'
-        return bytes(temp)
+        return bytes(temp, encoding=ENCODING_DEFAULT)
 
     def start_tls(self):
         def split_at_char(message_bytes, character, remove_CRLF):
             halves = message_bytes.split(character)
             if b'\r\n' in halves[0] and remove_CRLF:
-                return halves(0), halves(1)[0, len(halves(1)) - 2]
+                return halves[0], halves[1][0: len(halves[1]) - 2]
             else:
                 return halves[0], halves[1]
 
         self._transport.send('STARTTLS')
         data = self._transport.recv()
         response_code, response_body = split_at_char(data, b" ", True)
-        if response_code != b'220':
+        if not response_code.startswith(b'2'):
             print(response_code)
             raise Exception('Invalid server response to login authentication')
         self._transport.get_secure_socket()
+        self.ehlo()
 
     def print(self, msg: bytes):
         if self._verbose:
-            sys.stdout.write(b64decode(msg).decode(encoding=ENCODING_DEFAULT))
+            #p = b64decode(msg)
+            sys.stdout.write(msg.decode())
 
-    def send_mail(self, msg: Message):
+    def send_mail(self, msg):
         self.send_command(deque([f'MAIL FROM: {self._from_email}{LINE_BREAK}',
                           f'RCPT TO: {self._to_email}{LINE_BREAK}',
                           f'DATA',

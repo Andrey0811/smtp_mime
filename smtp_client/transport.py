@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*-
+
 from socket import socket, AF_INET, SOCK_STREAM
 import ssl
 
-from smtp_client.const import PORT_DEFAULT, ENCODING_DEFAULT
+from smtp_client.const import *
 
 
 class Transport:
@@ -10,7 +12,7 @@ class Transport:
         if is_ssl:
             self._socket = ssl.wrap_socket(self._socket)
 
-        self._socket.connect(*self.parse_domain_name(server))
+        self._socket.connect(self.parse_domain_name(server))
         self._is_ssl = is_ssl
         self._chunk = chunk
         self._server = server
@@ -25,21 +27,34 @@ class Transport:
         # exception
 
     def send(self, send_str):
-        if send_str is not bytes and send_str[-1] != '\n':
+        if not isinstance(send_str, bytes) and send_str[-1] != '\n':
             send_str += '\n'
-        self._socket.sendall(
-            bytes(send_str, encoding=ENCODING_DEFAULT))
+        if isinstance(send_str, bytes):
+            self._socket.sendall(send_str)
+        else:
+            self._socket.sendall(
+                bytes(send_str, encoding=ENCODING_DEFAULT))
 
     def recv(self) -> bytes:
         data = bytearray()
-        while True:
+        temp = bytes()
+        while not self.check_last_line(temp):
             temp = self._socket.recv(self._chunk)
-            if not temp or temp == '' or temp == b'':
-                break
-            else:
-                data += temp
+            data += temp
         return bytes(data)
 
+    def check_last_line(self, data: bytes):
+        data = data.decode(encoding=ENCODING_DEFAULT)
+        try:
+            t = data.split(LINE_BREAK)[-2]
+            if t[3] == ' ':
+                return True
+        except Exception:
+            return False
+
     def get_secure_socket(self):
-        self._socket = ssl.create_default_context().wrap_socket(
-            self._socket, server_hostname=self._server)
+        self._socket.close()
+        self._socket = socket(AF_INET, SOCK_STREAM)
+        self._socket = ssl.wrap_socket(self._socket)
+        self._socket.connect((self.parse_domain_name
+                              (self._server)[0], SECURE_PORT))

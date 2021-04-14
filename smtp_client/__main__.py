@@ -1,11 +1,14 @@
+# -*- coding: utf-8 -*-
+
 import argparse
 from base64 import b64encode
 from pathlib import Path
 import tkinter as tk
 
-from smtp_client.client import Client
-from smtp_client.const import LOGIN_WINDOW_SIZE
+import smtp_client.client
+import smtp_client.const
 from smtp_client.message import Message
+from smtp_client.utils import get_files, get_size
 
 
 def arg_parser():
@@ -25,7 +28,7 @@ def arg_parser():
                         help='email subject, the default '
                              'subject is "Happy Pictures"',
                         default='Happy Pictures')
-    parser.add_argument('--auth ', type=bool,
+    parser.add_argument('--auth', type=bool,
                         help='whether to request authorization '
                              '(by default, no)', default=False)
     parser.add_argument('-v', '--verbose', type=bool,
@@ -41,9 +44,9 @@ def login_gui():
     gui.title('ESMTP Client')
     screen_width = gui.winfo_screenwidth()
     screen_height = gui.winfo_screenheight()
-    x_coord = (screen_width / 2) - (LOGIN_WINDOW_SIZE[0] / 2)
-    y_coord = (screen_height / 2) - (LOGIN_WINDOW_SIZE[1] / 2)
-    gui.geometry('%dx%d+%d+%d' % (LOGIN_WINDOW_SIZE[0], LOGIN_WINDOW_SIZE[1], x_coord, y_coord))
+    x_coord = (screen_width / 2) - (smtp_client.const.LOGIN_WINDOW_SIZE[0] / 2)
+    y_coord = (screen_height / 2) - (smtp_client.const.LOGIN_WINDOW_SIZE[1] / 2)
+    gui.geometry('%dx%d+%d+%d' % (smtp_client.const.LOGIN_WINDOW_SIZE[0], smtp_client.const.LOGIN_WINDOW_SIZE[1], x_coord, y_coord))
     tk.Label(gui, text='Email Address:').grid(row=1)
     tk.Label(gui, text='Password:       ').grid(row=2)
 
@@ -63,37 +66,34 @@ def login_gui():
     return b64encode(email.get()), b64encode(password.get())
 
 
-def get_files(path: Path):
-    def get_text(file):
-        temp = ''
-        for j in file:
-            temp += j
-        return temp
+def main():
+    args = arg_parser().parse_args()
+    login, password = b'', b''
+    if args.auth:
+        login, password = login_gui()
+    client = smtp_client.client.Client(args.ssl, args.server, args.toe, args.frome,
+                    args.verbose, login, password)
+    msg = Message(args.frome, args.toe, args.subject)
+    remaining_size = client.get_max_size() - get_size(msg)
+    fl = False
+    client.ehlo()
+    if not args.ssl:
+        client.start_tls()
+        client.ehlo()
+    client.auth()
+    for file in get_files(args.directory):
+        if remaining_size - get_size(file[1]) <= 0:
+            fl = True
+            client.send_mail(msg)
+            msg = Message(args.frome, args.toe, args.subject)
+            remaining_size = client.get_max_size() - get_size(msg)
+        else:
+            fl = False
+            msg.add_part(*file)
 
-    if path.is_dir():
-        for i in path.iterdir():
-            if i.is_file():
-                yield i.name, get_text(i.open())
-
-
-args = arg_parser().parse_args()
-login, password = b'', b''
-if args.auth:
-    login, password = login_gui()
-client = Client(args.ssl, args.server, args.toe, args.frome,
-                args.verbose, login, password)
-msg = Message(args.frome, args.toe, args.subject)
-remaining_size = client.get_max_size() - msg.get_size(msg)
-fl = False
-for file in get_files(args.directory):
-    if remaining_size - msg.get_size(file[1]) <= 0:
-        fl = True
+    if fl:
         client.send_mail(msg)
-        msg = Message(args.frome, args.toe, args.subject)
-        remaining_size = client.get_max_size() - msg.get_size(msg)
-    else:
-        fl = False
-        msg.add_part(*file)
 
-if fl:
-    client.send_mail(msg)
+
+if __name__ == '__main__':
+    main()
