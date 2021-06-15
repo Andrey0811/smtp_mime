@@ -5,17 +5,16 @@ import sys
 from pathlib import Path
 
 
-def get_files(path: Path) -> (str, str):
-    def get_text(file):
-        temp = ''
-        for j in file:
-            temp += j
+def get_files(path: Path) -> (str, bytes):
+    def get_text(file) -> bytes:
+        with open(file, "rb") as f:
+            temp = f.read()
         return temp
 
     if path.is_dir():
         for i in path.iterdir():
             if i.is_file():
-                yield i.name, get_text(i.open())
+                yield str(i), get_text(i)
 
 
 def get_size(obj) -> int:

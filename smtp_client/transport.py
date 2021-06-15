@@ -11,8 +11,8 @@ class Transport:
         self._socket = socket(AF_INET, SOCK_STREAM)
         if is_ssl:
             self._socket = ssl.wrap_socket(self._socket)
-
-        self._socket.connect(self.parse_domain_name(server))
+        t = self.parse_domain_name(server)
+        self._socket.connect(t)
         self._is_ssl = is_ssl
         self._chunk = chunk
         self._server = server

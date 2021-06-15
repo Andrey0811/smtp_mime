@@ -15,9 +15,9 @@ def arg_parser():
     parser = argparse.ArgumentParser(description=
                                      'SMTP-MIME - Sends all files '
                                      'from the catalog to the recipient')
-    parser.add_argument('--ssl', nargs=1, type=bool,
+    parser.add_argument('--ssl', action='store_true',
                         help='Allow the use of ssl', default=False)
-    parser.add_argument('-s', '--server', type=str, nargs=1,
+    parser.add_argument('-s', '--server', type=str,
                         help='Address (or domain name) of SMTP server '
                              'in the format address [:port] (default port 25)')
     parser.add_argument('-t', '--toe', type=str, nargs=1,
@@ -28,10 +28,10 @@ def arg_parser():
                         help='email subject, the default '
                              'subject is "Happy Pictures"',
                         default='Happy Pictures')
-    parser.add_argument('--auth', type=bool,
+    parser.add_argument('--auth', action='store_true',
                         help='whether to request authorization '
                              '(by default, no)', default=False)
-    parser.add_argument('-v', '--verbose', type=bool,
+    parser.add_argument('-v', '--verbose', action='store_true',
                         help='displaying the work log', default=False)
     parser.add_argument('-d', '--directory', type=str,
                         help='directory with images (default $pwd)',
@@ -62,8 +62,7 @@ def login_gui():
     auth_button.grid(row=3, column=1)
 
     gui.mainloop()
-
-    return b64encode(email.get()), b64encode(password.get())
+    return b64encode(email.get().encode()), b64encode(password.get().encode())
 
 
 def main():
@@ -71,28 +70,24 @@ def main():
     login, password = b'', b''
     if args.auth:
         login, password = login_gui()
-    client = smtp_client.client.Client(args.ssl, args.server, args.toe, args.frome,
+    client = smtp_client.client.Client(args.ssl, args.server, args.toe[0], args.frome,
                     args.verbose, login, password)
-    msg = Message(args.frome, args.toe, args.subject)
+    msg = Message(args.frome, args.toe[0], args.subject)
     remaining_size = client.get_max_size() - get_size(msg)
-    fl = False
     client.ehlo()
+    client.hello_recv()
     if not args.ssl:
         client.start_tls()
-        client.ehlo()
+        client.hello_recv()
     client.auth()
-    for file in get_files(args.directory):
+    for file in get_files(Path(args.directory)):
         if remaining_size - get_size(file[1]) <= 0:
-            fl = True
             client.send_mail(msg)
             msg = Message(args.frome, args.toe, args.subject)
             remaining_size = client.get_max_size() - get_size(msg)
         else:
-            fl = False
             msg.add_part(*file)
-
-    if fl:
-        client.send_mail(msg)
+    client.send_mail(msg)
 
 
 if __name__ == '__main__':

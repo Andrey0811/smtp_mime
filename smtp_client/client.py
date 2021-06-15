@@ -2,7 +2,7 @@
 
 import sys
 from base64 import b64decode
-from typing import Deque
+from typing import Deque, List
 from collections import deque
 
 from smtp_client.const import *
@@ -12,7 +12,7 @@ import smtp_client.transport
 
 class Client:
     def __init__(self, is_ssl: bool, server: str,
-                 to_email: str, from_email: str,
+                 to_email, from_email: str,
                  verbose: bool,
                  login: bytes, password: bytes):
         self._transport = smtp_client.transport.Transport(is_ssl, server)
@@ -32,11 +32,11 @@ class Client:
             self._password.decode()]))
 
     def send_command(self, commands: Deque):
-        self._transport.send(commands.popleft())
-        if self._pipeline:
-            self._transport.send(self.get_str_commands(commands))
-        self.print(self._transport.recv())
-        if not self._pipeline:
+        # self._transport.send(commands.popleft())
+        # if self._pipeline:
+        #     self._transport.send(self.get_str_commands(commands))
+        # self.print(self._transport.recv())
+        # if not self._pipeline:
             while len(commands) > 0:
                 self._transport.send(commands.popleft())
                 self.print(self._transport.recv())
@@ -66,16 +66,17 @@ class Client:
         self.ehlo()
 
     def print(self, msg: bytes):
+        # if msg.startswith(b'5') or msg.startswith(b'4'):
+        #     raise Exception(msg)
+
         if self._verbose:
-            #p = b64decode(msg)
             sys.stdout.write(msg.decode())
 
     def send_mail(self, msg):
         self.send_command(deque([f'MAIL FROM: {self._from_email}{LINE_BREAK}',
                           f'RCPT TO: {self._to_email}{LINE_BREAK}',
                           f'DATA',
-                          str(msg),
-                          f'.{LINE_BREAK}']))
+                          str(msg) + f'.{LINE_BREAK}']))
 
     def ehlo(self):
         self._transport.send(f'EHLO {NAME_CLIENT}')
@@ -106,3 +107,8 @@ class Client:
 
     def get_max_size(self):
         return self._max_size
+
+    def hello_recv(self):
+        msg = self._transport.recv()
+        if self._verbose:
+            self.print(msg)

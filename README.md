@@ -21,3 +21,7 @@ Cкрипт, который отправляет получателю все ф�
 * работа по защищенному соединению (+starttls),
 * использование ESMTP (напр., pipelining, size).
 * обработка ответов сервера, в том числе многострочных.
+
+### Пример запуска
+* python -m ./smtp_client -v -s smtp.mail.ru -f andreyozhigoff@yandex.ru -t 0811andrey0811@mail.ru --auth --subject images -d /home/andrey/Pictures/Webcam
+* python -m ./smtp_client -v --ssl -s smtp.yandex.ru:465 -f andreyozhigoff@yandex.ru -t 0811andrey0811@mail.ru --auth --subject images -d /home/andrey/Pictures/Webcam
